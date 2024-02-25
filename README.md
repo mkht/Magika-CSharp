@@ -107,7 +107,7 @@ var res = magika.IdentifyBytes(inputBytes.ToArray());
 Console.WriteLine(res.output.ct_label);
 // > markdown
 
-var inputFile = $"path/to/sample.html";
+var inputFile = "path/to/sample.html";
 var res = magika.IdentifyPath(inputFile);
 Console.WriteLine(res.output.ct_label);
 // > html
