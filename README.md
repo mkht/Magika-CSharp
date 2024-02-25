@@ -1,6 +1,6 @@
 # Magika - CSharp
 
-This is a C# implementation of the [Magika](https://github.com/google/magika).
+This is a C# implementation of the [Magika](https://github.com/google/magika). Includes a .NET class library and a single binary CLI tool.
 
 Magika is a novel AI powered file type detection tool that is developed by Google.  
 Pleease refer to the original repository for more information.  
@@ -23,7 +23,7 @@ If you want to build from source, you need to install the following tools:
 ----
 ## Installation
 
-You can download the pre-build binaries per platform from the [Releases](https://github.com/mkht/Magika-CSharp/Releases) page.
+You can download the pre-build binaries per platform from the [Releases](https://github.com/mkht/Magika-CSharp/releases) page.
 
 ----
 ## Usage
