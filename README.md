@@ -146,7 +146,7 @@ This project is based on the initial release of Magika [v0.5.0](https://github.c
 
 As this is not a complete port, it may behave differently from the original Magika.
 
-This project is created for personal learning perpose. Therefore, there is no support at all. Continuous development and bug fixes are not guaranteed. It is undecided whether to follow the changes of the original project.
+This project is created for personal learning purpose. Therefore, there is no support at all. Continuous development and bug fixes are not guaranteed. It is undecided whether to follow the changes of the original project.
 
 Issue reports and pull requests are welcome, but we may not be able to respond.
 
