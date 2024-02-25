@@ -130,6 +130,17 @@ dotnet publish -f net8.0 -r win-x64
 ```
 
 ----
+## Tested Platforms
+
+We have tested the following platforms:
+
+- Windows 10 x64 Version 22H2
+- Windows 11 x64 Version 23H2
+- Ubuntu 22.04 LTS x64 (WSL2)
+
+We plan to test on other platforms in the future.
+
+----
 ## Important Notes
 This project is based on the initial release of Magika [v0.5.0](https://github.com/google/magika/releases/tag/v0.5.0) , so it may not follow the changes in subsequent releases.
 
