@@ -100,16 +100,17 @@ magika 0.5.0-dev
 
 ```csharp
 using magika;
-var magika = new Magika();
+
+using var magika = new Magika();
 
 var inputBytes = "# Example\nThis is an example of markdown!"u8;
-var res = magika.IdentifyBytes(inputBytes.ToArray());
-Console.WriteLine(res.output.ct_label);
+var res1 = magika.IdentifyBytes(inputBytes.ToArray());
+Console.WriteLine(res1.output.ct_label);
 // > markdown
 
 var inputFile = "path/to/sample.html";
-var res = magika.IdentifyPath(inputFile);
-Console.WriteLine(res.output.ct_label);
+var res2 = magika.IdentifyPath(inputFile);
+Console.WriteLine(res2.output.ct_label);
 // > html
 ```
 
