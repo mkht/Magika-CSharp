@@ -46,8 +46,8 @@ public class Magika : IDisposable
     private readonly int _output_column_size;
 
     string[] _target_labels_space_np;
-    public PredictionMode prediction_mode {get; set;} = PredictionMode.HIGH_CONFIDENCE;
-    public bool no_dereference {get; set;} = false;
+    public PredictionMode prediction_mode { get; set; } = PredictionMode.HIGH_CONFIDENCE;
+    public bool no_dereference { get; set; } = false;
 
     ContentTypesManager _ctm;
 
@@ -95,6 +95,7 @@ public class Magika : IDisposable
         this._input_column_size = this._input_sizes["beg"] + this._input_sizes["mid"] + this._input_sizes["end"];
         this._output_column_size = this._target_labels_space_np.Length;
 
+        this.no_dereference = no_dereference;
         this.prediction_mode = prediction_mode;
         this._ctm = new ContentTypesManager();
         this._onnx_session = InitOnnxSession();
@@ -951,7 +952,8 @@ public class Magika : IDisposable
         {
             return ContentType.PERMISSION_ERROR;
         }
-        catch{
+        catch
+        {
             return ContentType.ERROR;
         }
     }
