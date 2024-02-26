@@ -136,7 +136,8 @@ dotnet publish -f net8.0 -r win-x64
 We have tested the following platforms:
 
 - Windows 10 Version 22H2 x64
-- Windows 11 Version 23H2 x64
+- Windows 11 Version 22H2 x64
+- Windows 11 Version 22H2 ARM64
 - Ubuntu 22.04 LTS x64 (WSL2)
 - Ubuntu 23.10 ARM64 (Raspberry Pi 5)
 
