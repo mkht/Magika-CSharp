@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <PackageId>Magika.25.02.24.001.Test</PackageId>
-    <Version>0.5.0</Version>
+    <PackageId>Magika.27.02.24.001.Test</PackageId>
+    <Version>0.5.1</Version>
     <Authors>mkht</Authors>
   </PropertyGroup>
   

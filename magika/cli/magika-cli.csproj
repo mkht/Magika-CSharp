@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>0.5.0-dev</Version>
+    <Version>0.5.1-dev</Version>
     <Authors>mkht</Authors>
   </PropertyGroup>
 
