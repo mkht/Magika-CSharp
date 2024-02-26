@@ -1,3 +1,4 @@
 bin/
 obj/
 .vscode/
+tests_data/

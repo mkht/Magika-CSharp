@@ -46,8 +46,8 @@ public class Magika : IDisposable
     private readonly int _output_column_size;
 
     string[] _target_labels_space_np;
-    PredictionMode _prediction_mode;
-    bool _no_dereference;
+    public PredictionMode prediction_mode {get; set;} = PredictionMode.HIGH_CONFIDENCE;
+    public bool no_dereference {get; set;} = false;
 
     ContentTypesManager _ctm;
 
@@ -95,8 +95,7 @@ public class Magika : IDisposable
         this._input_column_size = this._input_sizes["beg"] + this._input_sizes["mid"] + this._input_sizes["end"];
         this._output_column_size = this._target_labels_space_np.Length;
 
-        this._prediction_mode = prediction_mode;
-        this._no_dereference = no_dereference;
+        this.prediction_mode = prediction_mode;
         this._ctm = new ContentTypesManager();
         this._onnx_session = InitOnnxSession();
     }
@@ -563,17 +562,17 @@ public class Magika : IDisposable
         dl_ct_label = _model_output_overwrite_map.ContainsKey(dl_ct_label) ? _model_output_overwrite_map[dl_ct_label] : dl_ct_label;
 
         string outputCtLabel;
-        if (_prediction_mode == PredictionMode.BEST_GUESS)
+        if (prediction_mode == PredictionMode.BEST_GUESS)
         {
             // We take the model predictions, no matter what the score is.
             outputCtLabel = dl_ct_label;
         }
-        else if (_prediction_mode == PredictionMode.HIGH_CONFIDENCE && score >= _thresholds[dl_ct_label])
+        else if (prediction_mode == PredictionMode.HIGH_CONFIDENCE && score >= _thresholds[dl_ct_label])
         {
             // The model score is higher than the per-content-type high-confidence threshold.
             outputCtLabel = dl_ct_label;
         }
-        else if (_prediction_mode == PredictionMode.MEDIUM_CONFIDENCE && score >= _medium_confidence_threshold)
+        else if (prediction_mode == PredictionMode.MEDIUM_CONFIDENCE && score >= _medium_confidence_threshold)
         {
             // We take the model prediction only if the score is above a given relatively loose threshold.
             outputCtLabel = dl_ct_label;
@@ -664,7 +663,7 @@ public class Magika : IDisposable
         FileInfo file = new(path);
         DirectoryInfo directory = new(path);
 
-        if (this._no_dereference
+        if (no_dereference
         && (file.Exists || directory.Exists)
         && File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
         {
@@ -691,7 +690,7 @@ public class Magika : IDisposable
 
         if (file.Exists)
         {
-            if (!_no_dereference && file.Attributes.HasFlag(FileAttributes.ReparsePoint))
+            if (!no_dereference && file.Attributes.HasFlag(FileAttributes.ReparsePoint))
             {
                 file = (FileInfo)file.ResolveLinkTarget(true);
                 path = file.FullName;
