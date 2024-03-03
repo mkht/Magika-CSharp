@@ -79,306 +79,291 @@ class Program
 
         var parseResult = Parser.Default.ParseArguments<Options>(args);
 
-        switch (parseResult.Tag)
+        if (parseResult.Tag != ParserResultType.Parsed)
         {
-            case ParserResultType.Parsed:
-                var parsed = parseResult as Parsed<Options>;
-                Options opt = parsed.Value;
+            Environment.Exit(1);
+        }
 
-                // defaults color is on, so if --no-colors is passed, we set it to off.
-                // --no-colors precedes --colors
-                bool UseColors = true;
-                if (opt.Colors)
-                {
-                    UseColors = true;
-                }
-                if (opt.NoColors)
-                {
-                    UseColors = false;
-                }
-                if (opt.CompatibilityMode)
-                {
-                    UseColors = false;
-                }
+        var parsed = parseResult as Parsed<Options>;
+        Options opt = parsed.Value;
 
-                if (UseColors)
-                {
-                    // Enable ANSI colors on legacy Windows consoles
-                    EnableVirtualTerminalProcessing();
-                }
+        // defaults color is on, so if --no-colors is passed, we set it to off.
+        // --no-colors precedes --colors
+        bool UseColors = true;
+        if (opt.Colors)
+        {
+            UseColors = true;
+        }
+        if (opt.NoColors)
+        {
+            UseColors = false;
+        }
+        if (opt.CompatibilityMode)
+        {
+            UseColors = false;
+        }
 
-                // Initialize logger
-                _logger = new SimpleLogger(LogLevel.Error, UseColors);
-                if (opt.Verbose)
-                {
-                    _logger.LogLevel = LogLevel.Information;
-                }
-                if (opt.Debug)
-                {
-                    _logger.LogLevel = LogLevel.Debug;
-                }
+        if (UseColors)
+        {
+            // Enable ANSI colors on legacy Windows consoles
+            EnableVirtualTerminalProcessing();
+        }
 
-                // Check CLI arguments and options
-                if (opt.ListOutputContentTypes)
+        // Initialize logger
+        _logger = new SimpleLogger(LogLevel.Error, UseColors);
+        if (opt.Verbose)
+        {
+            _logger.LogLevel = LogLevel.Information;
+        }
+        if (opt.Debug)
+        {
+            _logger.LogLevel = LogLevel.Debug;
+        }
+
+        // Check CLI arguments and options
+        if (opt.ListOutputContentTypes)
+        {
+            if (opt.Files.Any())
+            {
+                _logger.Error("You cannot pass any path when using the -l / --list option.");
+                Environment.Exit(1);
+            }
+            PrintOutputContentTypesList();
+            Environment.Exit(0);
+        }
+
+        PredictionMode predictionMode = PredictionMode.MEDIUM_CONFIDENCE;
+        if (string.IsNullOrWhiteSpace(opt.PredictionModeStr))
+        {
+            if (!PredictionModeStr.Contains(opt.PredictionModeStr, StringComparer.OrdinalIgnoreCase))
+            {
+                _logger.Error($"Invalid value for --prediction-mode: {opt.PredictionModeStr}");
+                Environment.Exit(1);
+            }
+            else
+            {
+                predictionMode = (PredictionMode)Enum.Parse(typeof(PredictionMode), opt.PredictionModeStr.ToUpper().Replace("-", "_"));
+            }
+        }
+
+        if (!opt.Files.Any())
+        {
+            _logger.Error("You need to pass at least one path, or - to read from stdin.");
+            Environment.Exit(1);
+        }
+
+        List<string> filePaths = [];
+        bool readFromStdIn = false;
+        foreach (var file in opt.Files)
+        {
+            if (file == "-")
+            {
+                readFromStdIn = true;
+                filePaths.Add("-");
+            }
+            else if (!File.Exists(file) && !Directory.Exists(file))
+            {
+                _logger.Error($"File or directory \"{file}\" does not exist.");
+                Environment.Exit(1);
+            }
+            else
+            {
+                filePaths.Add(file);
+            }
+        }
+
+        if (readFromStdIn)
+        {
+            if (filePaths.Count > 1)
+            {
+                _logger.Error("If you pass \"-\", you cannot pass anything else.");
+                Environment.Exit(1);
+            }
+            if (opt.Recursive)
+            {
+                _logger.Error("If you pass \"-\", recursive scan is not meaningful.");
+                Environment.Exit(1);
+            }
+        }
+
+        if (opt.BatchSize is <= 0 or > 512)
+        {
+            _logger.Error("Batch size needs to be greater than 0 and less or equal than 512.");
+            Environment.Exit(1);
+        }
+
+        if (opt.JsonOutput && opt.JsonLOutput)
+        {
+            _logger.Error("You should use either --json or --jsonl, not both.");
+            Environment.Exit(1);
+        }
+        else if (opt.JsonOutput)
+        {
+            _jsonOptions.WriteIndented = true;
+        }
+        else if (opt.JsonLOutput)
+        {
+            _jsonOptions.WriteIndented = false;
+        }
+
+        if ((opt.MimeOutput && opt.LabelOutput) || (opt.MimeOutput && opt.CompatibilityMode) || (opt.LabelOutput && opt.CompatibilityMode))
+        {
+            _logger.Error("You should use only one of --mime, --label, --compatibility-mode.");
+            Environment.Exit(1);
+        }
+
+        if (opt.Recursive)
+        {
+            try
+            {
+                // List<string> actualFilePaths = filePaths.Where(Directory.Exists).SelectMany(e => Directory.EnumerateFiles(e, "*", enumerationOptions)).Where(e => !Directory.Exists(e)).ToList();
+                List<string> expandedFilePaths = [];
+                foreach (var file in filePaths)
                 {
-                    if (opt.Files.Any())
+                    if (File.Exists(file))
                     {
-                        _logger.Error("You cannot pass any path when using the -l / --list option.");
-                        Environment.Exit(1);
+                        expandedFilePaths.Add(file);
+                        continue;
                     }
-                    PrintOutputContentTypesList();
-                    Environment.Exit(0);
-                }
-
-                PredictionMode predictionMode = PredictionMode.MEDIUM_CONFIDENCE;
-                if (string.IsNullOrWhiteSpace(opt.PredictionModeStr))
-                {
-                    if (!PredictionModeStr.Contains(opt.PredictionModeStr, StringComparer.OrdinalIgnoreCase))
+                    if (Directory.Exists(file))
                     {
-                        _logger.Error($"Invalid value for --prediction-mode: {opt.PredictionModeStr}");
-                        Environment.Exit(1);
+                        expandedFilePaths.AddRange(GetFilesFromDirectory(file, opt.NoDereference));
+                    }
+                    else if (file == "-")
+                    {
+                        continue;
                     }
                     else
-                    {
-                        predictionMode = (PredictionMode)Enum.Parse(typeof(PredictionMode), opt.PredictionModeStr.ToUpper().Replace("-", "_"));
-                    }
-                }
-
-                if (!opt.Files.Any())
-                {
-                    _logger.Error("You need to pass at least one path, or - to read from stdin.");
-                    Environment.Exit(1);
-                }
-
-                List<string> filePaths = [];
-                bool readFromStdIn = false;
-                foreach (var file in opt.Files)
-                {
-                    if (file == "-")
-                    {
-                        readFromStdIn = true;
-                        filePaths.Add("-");
-                    }
-                    else if (!File.Exists(file) && !Directory.Exists(file))
                     {
                         _logger.Error($"File or directory \"{file}\" does not exist.");
                         Environment.Exit(1);
                     }
+                }
+                filePaths = expandedFilePaths;
+            }
+            catch (Exception e)
+            {
+                _logger.Error($"Error while scanning directories: {e.Message}");
+                Environment.Exit(1);
+            }
+        }
+
+        _logger.Info($"Considering {filePaths.Count} files");
+        _logger.Debug($"Files: {string.Join(",", filePaths)}");
+
+        // Call Magika
+        using Magika magikaObj = new(
+                prediction_mode: predictionMode,
+                no_dereference: opt.NoDereference,
+                verbose: opt.Verbose,
+                debug: opt.Debug,
+                use_colors: UseColors
+            );
+
+        string start_color = "";
+        string end_color = "";
+        Dictionary<string, string> color_by_group = new()
+        {
+            ["document"] = Colors.LIGHT_PURPLE,
+            ["executable"] = Colors.LIGHT_GREEN,
+            ["archive"] = Colors.LIGHT_RED,
+            ["audio"] = Colors.YELLOW,
+            ["image"] = Colors.YELLOW,
+            ["video"] = Colors.YELLOW,
+            ["code"] = Colors.LIGHT_BLUE
+        };
+
+        // updated only when we need to output in JSON format
+        List<MagikaResult> all_predictions = [];
+
+        var batches_num = filePaths.Count / opt.BatchSize;
+        if (filePaths.Count % opt.BatchSize != 0)
+        {
+            batches_num += 1;
+        }
+
+        List<MagikaResult> batch_predictions = [];
+        for (int batch_idx = 0; batch_idx < batches_num; batch_idx++)
+        {
+            var files_ = filePaths.Skip(batch_idx * opt.BatchSize).Take(opt.BatchSize).ToArray();
+            if (ShouldReadFromStdin(files_))
+            {
+                batch_predictions = [GetMagikaResultFromStdIn(magikaObj)];
+            }
+            else
+            {
+                batch_predictions = magikaObj.IdentifyPaths(files_);
+            }
+
+            if (opt.JsonOutput)
+            {
+                all_predictions.AddRange(batch_predictions);
+            }
+            else if (opt.JsonLOutput)
+            {
+                foreach (var magika_result in batch_predictions)
+                {
+                    Console.WriteLine(JsonSerializer.Serialize(magika_result, _jsonOptions));
+                }
+            }
+            else
+            {
+                foreach (var magika_result in batch_predictions)
+                {
+                    string output;
+                    var path = magika_result.path;
+                    var output_ct_label = magika_result.output.ct_label;
+                    var output_ct_description = magika_result.output.description;
+                    var output_ct_group = magika_result.output.group;
+
+                    if (opt.MimeOutput)
+                    {
+                        output = magika_result.output.mime_type;
+                    }
+                    else if (opt.LabelOutput)
+                    {
+                        output = output_ct_label;
+                    }
+                    else if (opt.CompatibilityMode)
+                    {
+                        output = magika_result.output.magic;
+                    }
                     else
                     {
-                        filePaths.Add(file);
-                    }
-                }
+                        var dl_ct_label = magika_result.dl.ct_label;
+                        output = $"{output_ct_description} ({output_ct_group})";
 
-                if (readFromStdIn)
-                {
-                    if (filePaths.Count > 1)
-                    {
-                        _logger.Error("If you pass \"-\", you cannot pass anything else.");
-                        Environment.Exit(1);
-                    }
-                    if (opt.Recursive)
-                    {
-                        _logger.Error("If you pass \"-\", recursive scan is not meaningful.");
-                        Environment.Exit(1);
-                    }
-                }
-
-                if (opt.BatchSize is <= 0 or > 512)
-                {
-                    _logger.Error("Batch size needs to be greater than 0 and less or equal than 512.");
-                    Environment.Exit(1);
-                }
-
-                if (opt.JsonOutput && opt.JsonLOutput)
-                {
-                    _logger.Error("You should use either --json or --jsonl, not both.");
-                    Environment.Exit(1);
-                }
-                else if (opt.JsonOutput)
-                {
-                    _jsonOptions.WriteIndented = true;
-                }
-                else if (opt.JsonLOutput)
-                {
-                    _jsonOptions.WriteIndented = false;
-                }
-
-                if ((opt.MimeOutput && opt.LabelOutput) || (opt.MimeOutput && opt.CompatibilityMode) || (opt.LabelOutput && opt.CompatibilityMode))
-                {
-                    _logger.Error("You should use only one of --mime, --label, --compatibility-mode.");
-                    Environment.Exit(1);
-                }
-
-                if (opt.Recursive)
-                {
-                    try
-                    {
-                        // List<string> actualFilePaths = filePaths.Where(Directory.Exists).SelectMany(e => Directory.EnumerateFiles(e, "*", enumerationOptions)).Where(e => !Directory.Exists(e)).ToList();
-                        List<string> expandedFilePaths = [];
-                        foreach (var file in filePaths)
+                        if (!string.IsNullOrEmpty(dl_ct_label) && dl_ct_label != output_ct_label)
                         {
-                            if (File.Exists(file))
-                            {
-                                expandedFilePaths.Add(file);
-                                continue;
-                            }
-                            if (Directory.Exists(file))
-                            {
-                                expandedFilePaths.AddRange(GetFilesFromDirectory(file, opt.NoDereference));
-                            }
-                            else if (file == "-")
-                            {
-                                continue;
-                            }
-                            else
-                            {
-                                _logger.Error($"File or directory \"{file}\" does not exist.");
-                                Environment.Exit(1);
-                            }
-                        }
-                        filePaths = expandedFilePaths;
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.Error($"Error while scanning directories: {e.Message}");
-                        Environment.Exit(1);
-                    }
-                }
-
-                _logger.Info($"Considering {filePaths.Count} files");
-                _logger.Debug($"Files: {string.Join(",", filePaths)}");
-
-                // Call Magika
-                Magika magikaObj = null;
-                try
-                {
-                    magikaObj = new(
-                        prediction_mode: predictionMode,
-                        no_dereference: opt.NoDereference,
-                        verbose: opt.Verbose,
-                        debug: opt.Debug,
-                        use_colors: UseColors
-                    );
-
-
-                    string start_color = "";
-                    string end_color = "";
-                    Dictionary<string, string> color_by_group = new()
-                    {
-                        ["document"] = Colors.LIGHT_PURPLE,
-                        ["executable"] = Colors.LIGHT_GREEN,
-                        ["archive"] = Colors.LIGHT_RED,
-                        ["audio"] = Colors.YELLOW,
-                        ["image"] = Colors.YELLOW,
-                        ["video"] = Colors.YELLOW,
-                        ["code"] = Colors.LIGHT_BLUE
-                    };
-
-                    // updated only when we need to output in JSON format
-                    List<MagikaResult> all_predictions = [];
-
-                    var batches_num = filePaths.Count / opt.BatchSize;
-                    if (filePaths.Count % opt.BatchSize != 0)
-                    {
-                        batches_num += 1;
-                    }
-
-                    List<MagikaResult> batch_predictions = [];
-                    for (int batch_idx = 0; batch_idx < batches_num; batch_idx++)
-                    {
-                        var files_ = filePaths.Skip(batch_idx * opt.BatchSize).Take(opt.BatchSize).ToArray();
-                        if (ShouldReadFromStdin(files_))
-                        {
-                            batch_predictions = [GetMagikaResultFromStdIn(magikaObj)];
-                        }
-                        else
-                        {
-                            batch_predictions = magikaObj.IdentifyPaths(files_);
-                        }
-
-                        if (opt.JsonOutput)
-                        {
-                            all_predictions.AddRange(batch_predictions);
-                        }
-                        else if (opt.JsonLOutput)
-                        {
-                            foreach (var magika_result in batch_predictions)
-                            {
-                                Console.WriteLine(JsonSerializer.Serialize(magika_result, _jsonOptions));
-                            }
-                        }
-                        else
-                        {
-                            foreach (var magika_result in batch_predictions)
-                            {
-                                string output;
-                                var path = magika_result.path;
-                                var output_ct_label = magika_result.output.ct_label;
-                                var output_ct_description = magika_result.output.description;
-                                var output_ct_group = magika_result.output.group;
-
-                                if (opt.MimeOutput)
-                                {
-                                    output = magika_result.output.mime_type;
-                                }
-                                else if (opt.LabelOutput)
-                                {
-                                    output = output_ct_label;
-                                }
-                                else if (opt.CompatibilityMode)
-                                {
-                                    output = magika_result.output.magic;
-                                }
-                                else
-                                {
-                                    var dl_ct_label = magika_result.dl.ct_label;
-                                    output = $"{output_ct_description} ({output_ct_group})";
-
-                                    if (!string.IsNullOrEmpty(dl_ct_label) && dl_ct_label != output_ct_label)
-                                    {
-                                        var dl_description = magika_result.dl.description;
-                                        var dl_group = magika_result.dl.group;
-                                        var dl_score = (int)(magika_result.dl.score.Value * 100);
-                                        output += $" [Low-confidence model best-guess: {dl_description} ({dl_group}), score={dl_score}]";
-                                    }
-                                }
-
-                                if (UseColors)
-                                {
-                                    start_color = color_by_group.GetValueOrDefault(output_ct_group, Colors.WHITE);
-                                    end_color = Colors.RESET;
-                                }
-
-                                if (opt.ScoreOutput)
-                                {
-                                    var score = (int)(magika_result.output.score * 100);
-                                    Console.WriteLine($"{start_color}{path}: {output} {score}%{end_color}");
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"{start_color}{path}: {output}{end_color}");
-                                }
-                            }
+                            var dl_description = magika_result.dl.description;
+                            var dl_group = magika_result.dl.group;
+                            var dl_score = (int)(magika_result.dl.score.Value * 100);
+                            output += $" [Low-confidence model best-guess: {dl_description} ({dl_group}), score={dl_score}]";
                         }
                     }
 
-                    if (opt.JsonOutput)
+                    if (UseColors)
                     {
-                        Console.WriteLine(JsonSerializer.Serialize(all_predictions, _jsonOptions));
+                        start_color = color_by_group.GetValueOrDefault(output_ct_group, Colors.WHITE);
+                        end_color = Colors.RESET;
+                    }
+
+                    if (opt.ScoreOutput)
+                    {
+                        var score = (int)(magika_result.output.score * 100);
+                        Console.WriteLine($"{start_color}{path}: {output} {score}%{end_color}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{start_color}{path}: {output}{end_color}");
                     }
                 }
-                finally
-                {
-                    magikaObj?.Dispose();
-                }
+            }
+        }
 
-                break;
-
-            case ParserResultType.NotParsed:
-                var notParsed = parseResult as NotParsed<Options>;
-
-                break;
+        if (opt.JsonOutput)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(all_predictions, _jsonOptions));
         }
     }
 
