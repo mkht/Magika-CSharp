@@ -3,7 +3,7 @@
 This is a C# implementation of the [Magika](https://github.com/google/magika). Includes a .NET class library and a single binary CLI tool.
 
 Magika is a novel AI powered file type detection tool that is developed by Google.  
-Pleease refer to the original repository for more information.  
+Please refer to the original repository for more information.  
 https://github.com/google/magika
 
 > [!IMPORTANT]  
